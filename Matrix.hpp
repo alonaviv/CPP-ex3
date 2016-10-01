@@ -164,7 +164,7 @@ public:
 	/* Performs the addition operation on two matrices of the same size. 
 	 * Throws an exception if the two matrices are not of the same size
 	 */
-	Matrix operator+(const Matrix<T>& other)
+	Matrix operator+(const Matrix<T>& other) const
 	{
 		
 		if(not _validateSameDimensions(other))
@@ -181,10 +181,10 @@ public:
 	}
 
 
-	/* Performs the substraction operation on two matrices of the same size. 
+	/* Performs the subtraction operation on two matrices of the same size. 
 	 * Throws an exception if the two matrices are not of the same size
 	 */
-	Matrix operator-(const Matrix<T>& other)
+	Matrix operator-(const Matrix<T>& other) const
 	{
 		
 		if(not _validateSameDimensions(other))
@@ -206,7 +206,7 @@ public:
 	 * Throws an exception if the two matrices are not of compatible
 	 * multiplication dimensions.
 	 */
-	Matrix operator*(const Matrix<T>& other)
+	Matrix operator*(const Matrix<T>& other) const 
 	{
 		if(_numberOfCols != other._numberOfRows)
 		{
@@ -228,31 +228,33 @@ public:
 	}
 
 
+	/* Performs a transposition of the matrix. Returns a new, transformed 
+	 * copy, without modifying the original.*/
+	 
+	Matrix trans() const 
+	{
+		std::vector<std::vector<T>> cells;
+		
+		std::vector<T> row;
+		for(unsigned int i = 0; i < _numberOfCols; i++)
+		{
+			for(unsigned int j = 0; j < _numberOfRows; j++)
+			{
+				row.push_back(_cells[j][i]);
+			}
+			cells.push_back(move(std::move(row)));
+		}
+		return std::move(Matrix(_numberOfCols, _numberOfRows, std::move(cells)));
+	}
+
+
 	/**
 	 * Equality operator. Returns true iff all items within the matrix are
 	 * equal
 	 */
-	bool operator==(const Matrix<T>& other)
+	bool operator==(const Matrix<T>& other) const 
 	{
 		return _cells == other._cells;
-		/**
-		if(_numberOfRows != other._numberOfRows or _numberOfCols != other._numberOfCols)
-		{
-			return false;
-		}
-		
-
-		for(unsigned int i = 0; i < _numberOfRows; i++)
-		{
-			if(std::equal<std::vector<T>, std::vector<T>>(_cells[i].cbegin(), _cells[i].cend(),
-						other._cells[i].cbegin(), other._cells[i].cend()))
-			{
-				return true;
-			
-			}
-		}
-		return false;
-		*/
 	}
 
 
@@ -260,12 +262,66 @@ public:
 	 * Inequality operator. Returns false iff all items within the matrix are
 	 * equal
 	 */
-	bool operator!=(const Matrix<T>& other)
+	bool operator!=(const Matrix<T>& other) const 
 	{
 		return not (*this == other);
 	}
 
 
+	/** 
+	 * returns a const ref of the contents of a cell according to given indexes.
+	 * throws an exception if the given indexes exceeds the matrix's boundaries.
+	 */
+	const T& operator()(unsigned int rowIndex, unsigned int colIndex) const
+	{
+		if(rowIndex >= _numberOfRows or colIndex >= _numberOfCols)
+		{
+			throw std::out_of_range("requested index exceeds matrix's range");
+		}
+		return _cells[rowIndex][colIndex];
+	}
+
+	
+	/** 
+	 * returns a non-const ref of the contents of a cell according to given indexes.
+	 * throws an exception if the given indexes exceeds the matrix's boundaries.
+	 */
+# warning TODO Check that both constant/non-constant are called when T is a object
+	T& operator()(unsigned int rowIndex, unsigned int colIndex) 
+	{
+		if(rowIndex >= _numberOfRows or colIndex >= _numberOfCols)
+		{
+			throw std::out_of_range("requested index exceeds matrix's range");
+		}
+		return _cells[rowIndex][colIndex];
+	}
+
+
+	/** Returns true iff the matrix is a square */
+	bool isSquareMatrix() const
+	{
+		return _numberOfRows == _numberOfCols;
+	}
+
+
+	/** 
+	 * Returns the number of rows in the matrix
+	 */
+	unsigned int rows() const
+	{
+		return _numberOfRows;
+	}
+
+
+	/** 
+	 * Returns the number of columns in the matrix.
+	 */
+	unsigned int cols() const
+	{
+		return _numberOfCols;
+	}
+
+	
 	/** Outputs a matrix to a given ostream. Each value of a 
 	 * column is separated by a \t, and each row is
 	 * separated by a new line */
@@ -325,15 +381,15 @@ public:
 		}
 
 		/**
-		 * Prefix Increment iterator.
-		 * Throws an exception if iterator is already at the last
+		 * prefix increment iterator.
+		 * throws an exception if iterator is already at the last
 		 * location.
 		 */
 		constIterator& operator++()
 		{
 			if (_rowLocation ==  _matrix._numberOfRows and _colLocation == ITERATOR_STARTING_COL)
 			{
-				throw std::out_of_range("Iterator is already at matrix's end");
+				throw std::out_of_range("iterator is already at matrix's end");
 			}
 
 			if(_colLocation != _matrix._numberOfCols - 1)
@@ -345,9 +401,34 @@ public:
 				_colLocation = ITERATOR_STARTING_COL;
 				_rowLocation ++;
 			}
-
 			return *this;
 		}
+		
+
+		/**
+		 * prefix decrement iterator.
+		 * throws an exception if iterator is already at the first 
+		 * location.
+		 */
+		constIterator& operator--()
+		{
+			if (_rowLocation == ITERATOR_STARTING_ROW and _colLocation == ITERATOR_STARTING_COL)
+			{
+				throw std::out_of_range("iterator is already at matrix's start");
+			}
+
+			if(_colLocation != ITERATOR_STARTING_COL)
+			{
+				_colLocation--;
+			}
+			else
+			{
+				_colLocation = _matrix._numberOfCols - 1;
+				_rowLocation --;
+			}
+			return *this;
+		}
+
 
 		/**
 		 * Postfix Increment iterator.
@@ -361,13 +442,17 @@ public:
 			return currentIterator;
 		}
 
-
-
 		/**
-		 * Decrement iterator by one throughout the matrix.
-		 * Throws an exception if iterator is already at the startting
-		 * point
-		constIterator& operator--();*/
+		 * Postfix decrement iterator.
+		 * Throws an exception if iterator is already at the last
+		 * location.
+		 */
+		constIterator operator--(int)
+		{
+			constIterator currentIterator(*this);
+			--(*this);
+			return currentIterator;
+		}
 
 		/**
 		 * Equality Comparison between two iterators, by their location 
@@ -390,7 +475,8 @@ public:
 	};
 
 	/** Returns an iterator to the start of the matrix */
-	constIterator begin() const {
+	constIterator begin() const
+	{
 		return constIterator(ITERATOR_STARTING_ROW, ITERATOR_STARTING_COL, *this);
 	}
 
