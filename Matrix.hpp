@@ -6,6 +6,7 @@
 # include <vector>
 # include <stdexcept>
 # include <iostream>
+# include <algorithm>
 
 
 const int ZERO_ARGUMENT = 0;
@@ -92,19 +93,20 @@ private:
 	 * a column index for the second. Returns the dot product
 	 * of the two vectors (in the linear algebra sense), of the row
 	 * and the column. Throws an exception if the a's row size isn't equal
-	 * to b's column size, or if given indexes exceed the length of the
-	 * column/row
+	 * to b's column size.
 	 */
 	static T s_matrixDotProduct(const Matrix& a, unsigned int aRowIndex, const Matrix& b,
 			unsigned int bColIndex)
 	{
-		if(a._numberOfRows != b._numberOfCols or aRowIndex >= a._rowIndex or bColIndex >= b._colIndex)
+		if(a._numberOfCols != b._numberOfRows)
+
 		{
+			std::cout << "a.number of cols is " << a._numberOfCols << std::endl<<"b.number of rows" << b._numberOfRows << std::endl << " aRowIndex" << aRowIndex << std::endl << "bColIndex" <<bColIndex << std::endl;
 			throw std::length_error("Error computing dot product - incompatible sizes");
 		}
 
 		T sum(ZERO_ARGUMENT);
-		for(unsigned int i = 0; i < a._numberOfRows; i++)
+		for(unsigned int i = 0; i < a._numberOfCols; i++)
 		{
 			sum = sum + (a._cells[aRowIndex][i] * b._cells[i][bColIndex]);
 		}
@@ -144,7 +146,7 @@ public:
 			throw std::out_of_range("Given vector size doesn't match matrix's dimensions");
 		}
 
-		for(int i = 0; i < _numberOfRows; i++)
+		for(unsigned int i = 0; i < _numberOfRows; i++)
 		{
 			 typename std::vector<T>::const_iterator rowStart = cells.cbegin() + i*_numberOfCols ;
 			_cells.push_back(std::vector<T>(rowStart, rowStart + _numberOfCols));
@@ -171,7 +173,7 @@ public:
 		}
 
 		std::vector<std::vector<T>> newCells;
-		for(int i = 0; i < _numberOfRows; i++)
+		for(unsigned int i = 0; i < _numberOfRows; i++)
 		{
 			newCells.push_back(_cells[i] + other._cells[i]);
 		}
@@ -191,7 +193,7 @@ public:
 		}
 
 		std::vector<std::vector<T>> newCells;
-		for(int i = 0; i < _numberOfRows; i++)
+		for(unsigned int i = 0; i < _numberOfRows; i++)
 		{
 			newCells.push_back(_cells[i] - other._cells[i]);
 		}
@@ -206,22 +208,64 @@ public:
 	 */
 	Matrix operator*(const Matrix<T>& other)
 	{
-		
 		if(_numberOfCols != other._numberOfRows)
 		{
 			throw std::length_error("Trying to add matrices of different dimensions");
 		}
 
-		for(int i = 0; i < _numberOfRows; i++)
+		std::vector<std::vector<T>> cells;
+		
+		std::vector<T> row;
+		for(unsigned int i = 0; i < _numberOfRows; i++)
 		{
-			std::vector<T> row;
-			for(int j = 0; j < other._numberofCols; j++)
+			for(unsigned int j = 0; j < other._numberOfCols; j++)
 			{
-				row.push_back(move(s_matrixDotProduct(*this, i, other, j)))
-
-
-
+				row.push_back(std::move(s_matrixDotProduct(*this, i, other, j)));
+			}
+			cells.push_back(move(std::move(row)));
+		}
+		return std::move(Matrix(_numberOfRows, other._numberOfCols, std::move(cells)));
 	}
+
+
+	/**
+	 * Equality operator. Returns true iff all items within the matrix are
+	 * equal
+	 */
+	bool operator==(const Matrix<T>& other)
+	{
+		return _cells == other._cells;
+		/**
+		if(_numberOfRows != other._numberOfRows or _numberOfCols != other._numberOfCols)
+		{
+			return false;
+		}
+		
+
+		for(unsigned int i = 0; i < _numberOfRows; i++)
+		{
+			if(std::equal<std::vector<T>, std::vector<T>>(_cells[i].cbegin(), _cells[i].cend(),
+						other._cells[i].cbegin(), other._cells[i].cend()))
+			{
+				return true;
+			
+			}
+		}
+		return false;
+		*/
+	}
+
+
+	/**
+	 * Inequality operator. Returns false iff all items within the matrix are
+	 * equal
+	 */
+	bool operator!=(const Matrix<T>& other)
+	{
+		return not (*this == other);
+	}
+
+
 	/** Outputs a matrix to a given ostream. Each value of a 
 	 * column is separated by a \t, and each row is
 	 * separated by a new line */
@@ -248,8 +292,8 @@ public:
 	class constIterator
 	{
 	private:
-		int _rowLocation;
-		int _colLocation;
+		unsigned int _rowLocation;
+		unsigned int _colLocation;
 		const Matrix& _matrix;
 
 	public:
@@ -257,7 +301,8 @@ public:
 		 * Constructor. Receives a pointer to the starting 
 		 * location of the iterator withing the matrix.
 		 */
-		constIterator(const int startingRowLocation, const int startingColLocation, 
+		constIterator(const unsigned int startingRowLocation,
+				const unsigned int startingColLocation, 
 				const Matrix& matrix): _rowLocation(startingRowLocation),
 		_colLocation(startingColLocation), _matrix(matrix){}
 				
